@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gateway Central de Domótica - Arquitectura</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+
+        nav {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 2px solid #667eea;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        nav a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        nav a:hover {
+            color: #764ba2;
+        }
+
+        .content {
+            padding: 40px 20px;
+        }
+
+        section {
+            display: none;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h2 {
+            color: #667eea;
+            font-size: 2em;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        h3 {
+            color: #764ba2;
+            font-size: 1.4em;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+
+        p {
+            margin-bottom: 15px;
+            text-align: justify;
+        }
+
+        .diagram {
+            background: #f8f9fa;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            overflow-x: auto;
+        }
+
+        .component-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .component-box h4 {
+            font-size: 1.1em;
+            margin-bottom: 8px;
+        }
+
+        .component-box p {
+            margin: 5px 0;
+            font-size: 0.95em;
+        }
+
+        .flow-diagram {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .flow-step {
+            background: #f0f4ff;
+            border-left: 5px solid #667eea;
+            padding: 15px;
+            border-radius: 5px;
+        }
+
+        .flow-step strong {
+            color: #667eea;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .code-block {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            margin: 15px 0;
+        }
+
+        .code-block code {
+            display: block;
+        }
+
+        .highlight {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 5px solid #ffc107;
+            margin: 15px 0;
+        }
+
+        .highlight strong {
+            color: #856404;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        table th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+        }
+
+        table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .task-template {
+            background: #e8f5e9;
+            border-left: 5px solid #4caf50;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+
+        .task-template code {
+            background: #f1f1f1;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .card {
+            background: #f8f9fa;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+
+        .card:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+        }
+
+        .card h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            border-top: 2px solid #ddd;
+            color: #666;
+        }
+
+        .breadcrumb {
+            background: #f8f9fa;
+            padding: 10px 20px;
+            margin: 0 20px 20px 20px;
+            border-radius: 5px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        ul, ol {
+            margin: 15px 0 15px 30px;
+        }
+
+        li {
+            margin: 8px 0;
+        }
+
+        .icon {
+            display: inline-block;
+            width: 30px;
+            text-align: center;
+            margin-right: 10px;
+        }
+
+        .back-to-top {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #667eea;
+            color: white;
+            padding: 12px 15px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: none;
+            font-size: 1.5em;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s;
+        }
+
+        .back-to-top:hover {
+            background: #764ba2;
+            transform: translateY(-3px);
+        }
+
+        .back-to-top.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏠 Gateway Central de Domótica</h1>
+            <p>Arquitectura, Funcionamiento y Guía de Desarrollo</p>
+        </header>
+
+        <nav>
+            <a onclick="showSection('arquitectura')">📐 Arquitectura</a>
+            <a onclick="showSection('componentes')">⚙️ Componentes</a>
+            <a onclick="showSection('flujo')">🔄 Flujo de Trabajo</a>
+            <a onclick="showSection('tareas')">✅ Agregar Tareas</a>
+            <a onclick="showSection('tecnologia')">💻 Tecnología</a>
+            <a onclick="showSection('faq')">❓ FAQ</a>
+        </nav>
+
+        <div class="content">
+            <!-- SECCIÓN: ARQUITECTURA -->
+            <section id="arquitectura" class="active">
+                <h2>📐 Arquitectura General</h2>
+                <p>El Gateway Central es un dispositivo ESP32 que actúa como hub de comunicación en un sistema de domótica distribuido. Sirve como puente entre dispositivos satelitales (usando ESP-NOW) y una red MQTT para control remoto y monitorización.</p>
+
+                <h3>Diagrama de Arquitectura</h3>
+                <div class="diagram">
+                    <pre>
+┌─────────────────────────────────────────────────────────┐
+│                   Gateway Central (ESP32)               │
+│                                                         │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
+│  │ ESP-NOW      │  │ WiFi Stack   │  │ MQTT Client  │ │
+│  │ Receiver     │  │ (STA Mode)   │  │              │ │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘ │
+│         │                 │                  │         │
+│  ┌──────▼─────────────────▼──────────────────▼───────┐ │
+│  │         Event Loop & Task Manager (FreeRTOS)      │ │
+│  └──────┬──────────────────────────────────────────┬──┘ │
+│         │                                          │    │
+│  ┌──────▼────────────┐  ┌──────────────┐  ┌────────▼───┐│
+│  │ Protocol Handler  │  │ NVS Storage  │  │ Logging    ││
+│  │ (DomoProtocol)    │  │              │  │ System     ││
+│  └───────────────────┘  └──────────────┘  └────────────┘│
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+         │                    │                    │
+         ▼                    ▼                    ▼
+    ┌─────────┐         ┌──────────┐        ┌──────────┐
+    │ Nodos   │         │ Red WiFi │        │ Broker   │
+    │ Satélite│         │ Local    │        │ MQTT     │
+    │ESP-NOW  │         │          │        │ (Cloud)  │
+    └─────────┘         └──────────┘        └──────────┘
+                    </pre>
+                </div>
+
+                <h3>Características Principales</h3>
+                <div class="grid">
+                    <div class="card">
+                        <h4>🔌 Conectividad Dual</h4>
+                        <p>Soporta comunicación simultánea via WiFi y ESP-NOW para máxima flexibilidad</p>
+                    </div>
+                    <div class="card">
+                        <h4>🔐 Escalabilidad</h4>
+                        <p>Puede manejar múltiples nodos satélite mediante ESP-NOW y control remoto vía MQTT</p>
+                    </div>
+                    <div class="card">
+                        <h4>⚡ Tiempo Real</h4>
+                        <p>Procesamiento en tiempo real con FreeRTOS para baja latencia</p>
+                    </div>
+                    <div class="card">
+                        <h4>💾 Persistencia</h4>
+                        <p>NVS (Non-Volatile Storage) para almacenar configuraciones críticas</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECCIÓN: COMPONENTES -->
+            <section id="componentes">
+                <h2>⚙️ Componentes del Sistema</h2>
+
+                <h3>1. Gateway WiFi (gateway_wifi.cpp/h)</h3>
+                <div class="component-box">
+                    <h4>Responsabilidad</h4>
+                    <p>Gestiona la conexión WiFi en modo Station (STA) y la integración con el event loop</p>
+                </div>
+                <p><strong>Funciones principales:</strong></p>
+                <ul>
+                    <li><code>init_sta()</code> - Inicializa WiFi en modo Station</li>
+                    <li><code>is_connected()</code> - Verifica estado de conexión</li>
+                    <li>Manejo de eventos de WiFi (conectado/desconectado)</li>
+                </ul>
+
+                <h3>2. Gateway ESP-NOW (gateway_espnow.cpp/h)</h3>
+                <div class="component-box">
+                    <h4>Responsabilidad</h4>
+                    <p>Implementa protocolo ESP-NOW para comunicación de corto alcance con nodos satélite</p>
+                </div>
+                <p><strong>Funciones principales:</strong></p>
+                <ul>
+                    <li><code>init()</code> - Inicializa protocolo ESP-NOW</li>
+                    <li><code>send_command()</code> - Envía comandos a nodos satélite</li>
+                    <li>Callbacks de recepción y transmisión</li>
+                    <li>Queue FreeRTOS para procesamiento asíncrono</li>
+                </ul>
+
+                <h3>3. Gateway MQTT (gateway_mqtt.cpp/h)</h3>
+                <div class="component-box">
+                    <h4>Responsabilidad</h4>
+                    <p>Proporciona interfaz de control remoto via MQTT para integración con sistemas de automatización</p>
+                </div>
+                <p><strong>Funciones principales:</strong></p>
+                <ul>
+                    <li><code>init()</code> - Conecta al broker MQTT</li>
+                    <li><code>publish_sensor_data()</code> - Publica telemetría</li>
+                    <li>Suscripción a tópicos de comandos</li>
+                    <li>Procesamiento de comandos JSON</li>
+                </ul>
+
+                <h3>4. Protocolo DomoTica (domo_protocol)</h3>
+                <div class="component-box">
+                    <h4>Responsabilidad</h4>
+                    <p>Define estructuras de datos y tipos compartidos entre gateway y nodos satélite</p>
+                </div>
+                <p><strong>Estructura principal: DomoMessage_t</strong></p>
+                <div class="code-block"><code>
+typedef struct {
+    uint8_t mac_origen[6];           // MAC del nodo emisor
+    uint8_t tipo_nodo;               // Tipo de dispositivo
+    uint8_t pin_afectado;            // Pin de GPIO
+    uint8_t estado_solicitado;       // Estado del pin
+    float lectura_temperatura;       // Temperatura (si aplica)
+    float lectura_humedad;           // Humedad (si aplica)
+    uint32_t timestamp_operacion;    // Timestamp de la operación
+} DomoMessage_t;
+                </code></div>
+            </section>
+
+            <!-- SECCIÓN: FLUJO DE TRABAJO -->
+            <section id="flujo">
+                <h2>🔄 Flujo de Trabajo</h2>
+
+                <h3>Secuencia de Inicialización</h3>
+                <div class="flow-diagram">
+                    <div class="flow-step">
+                        <strong>1️⃣ Inicializar NVS (Non-Volatile Storage)</strong>
+                        <p>Prepara el almacenamiento para guardar configuraciones persistentes de WiFi y otros parámetros</p>
+                    </div>
+                    <div class="flow-step">
+                        <strong>2️⃣ Crear Event Loop por defecto</strong>
+                        <p>Configura el sistema de eventos de ESP-IDF para manejar eventos asíncrónos</p>
+                    </div>
+                    <div class="flow-step">
+                        <strong>3️⃣ Inicializar WiFi en modo Station</strong>
+                        <p>Conecta el ESP32 a la red WiFi usando credenciales configuradas</p>
+                    </div>
+                    <div class="flow-step">
+                        <strong>4️⃣ Inicializar ESP-NOW</strong>
+                        <p>Activa protocolo ESP-NOW para comunicación con nodos satélite (requiere WiFi activo)</p>
+                    </div>
+                    <div class="flow-step">
+                        <strong>5️⃣ Conectar a Broker MQTT</strong>
+                        <p>Establece conexión con servidor MQTT para control remoto</p>
+                    </div>
+                    <div class="flow-step">
+                        <strong>6️⃣ Loop de Monitorización</strong>
+                        <p>Monitoriza estado de conexiones y registra eventos periódicamente</p>
+                    </div>
+                </div>
+
+                <h3>Flujo de Datos: Nodo Satélite → Gateway → MQTT</h3>
+                <div class="diagram">
+                    <pre>
+Nodo Satélite              Gateway                  Broker MQTT
+     │                        │                          │
+     │ ESP-NOW Message        │                          │
+     ├───────────────────────►│                          │
+     │                        │ Parse Message            │
+     │                        ├─────────┐                │
+     │                        │         │                │
+     │                        │ Queue   │                │
+     │                        │ for     │ Processing    │
+     │                        │ Processing              │
+     │                        │◄────────┘                │
+     │                        │                          │
+     │                        │ Publish JSON            │
+     │                        ├─────────────────────────►│
+     │                        │                          │ Store
+     │                        │                          │ in DB
+     │                        │                          │
+                    </pre>
+                </div>
+
+                <h3>Procesamiento de Comandos MQTT</h3>
+                <div class="diagram">
+                    <pre>
+Broker MQTT          Gateway                 Nodo Satélite
+     │                  │                          │
+     │ Comando JSON     │                          │
+     ├─────────────────►│                          │
+     │                  │ Parse JSON              │
+     │                  ├──────────┐               │
+     │                  │          │               │
+     │                  │ Validate │               │
+     │                  │          │               │
+     │                  │◄─────────┘               │
+     │                  │                          │
+     │                  │ Send via ESP-NOW        │
+     │                  ├──────────────────────────►│
+     │                  │                          │ Execute
+     │                  │                          │ Command
+     │                  │                          │
+     │                  │◄──────────────────────────┤ ACK
+     │                  │ Report Result             │
+     │◄─────────────────┤ (JSON)                    │
+     │                  │                          │
+                    </pre>
+                </div>
+            </section>
+
+            <!-- SECCIÓN: AGREGAR TAREAS -->
+            <section id="tareas">
+                <h2>✅ Cómo Agregar Nuevas Tareas</h2>
+
+                <div class="highlight">
+                    <strong>⚠️ Nota importante:</strong> Una "tarea" en este contexto puede ser:
+                    <ul>
+                        <li>Una nueva funcionalidad en un gateway existente</li>
+                        <li>Un nuevo componente de hardware (sensores, actuadores)</li>
+                        <li>Un nuevo tipo de nodo satélite</li>
+                        <li>Procesamiento adicional de datos</li>
+                    </ul>
+                </div>
+
+                <h3>Opción 1: Agregar Sensor a un Nodo Existente</h3>
+                <div class="task-template">
+                    <h4>📊 Ejemplo: Agregar Sensor de Luz</h4>
+                    <p><strong>Paso 1:</strong> Actualizar estructura DomoMessage_t</p>
+                    <div class="code-block"><code>
+// En domo_protocol.h
+typedef struct {
+    // ... campos existentes ...
+    float lectura_luz;  // NEW: Lectura de intensidad de luz
+    uint8_t nivel_bateria;  // NEW: Nivel de batería del nodo
+} DomoMessage_t;
+                    </code></div>
+
+                    <p><strong>Paso 2:</strong> Actualizar código del nodo satélite</p>
+                    <div class="code-block"><code>
+// En nodo satélite
+DomoMessage_t msg = {};
+// ... llenar campos existentes ...
+msg.lectura_luz = ldr_sensor.read_voltage();
+msg.nivel_bateria = battery_monitor.get_percentage();
+esp_now_send(gateway_mac, (uint8_t*)&msg, sizeof(msg));
+                    </code></div>
+
+                    <p><strong>Paso 3:</strong> Procesar datos en el gateway</p>
+                    <div class="code-block"><code>
+// En gateway_espnow.cpp - función espnow_processor_task
+ESP_LOGI(TAG, "Lectura de Luz: %.1f lux", msg.lectura_luz);
+ESP_LOGI(TAG, "Batería: %d%%", msg.nivel_bateria);
+                    </code></div>
+
+                    <p><strong>Paso 4:</strong> Publicar en MQTT</p>
+                    <div class="code-block"><code>
+// En gateway_mqtt.cpp - publish_sensor_data
+cJSON_AddNumberToObject(root, "luz", msg.lectura_luz);
+cJSON_AddNumberToObject(root, "bateria", msg.nivel_bateria);
+                    </code></div>
+                </div>
+
+                <h3>Opción 2: Agregar Nueva Funcionalidad de Control</h3>
+                <div class="task-template">
+                    <h4>💡 Ejemplo: Agregar Control de Brightness</h4>
+                    <p><strong>Paso 1:</strong> Extender DomoMessage_t</p>
+                    <div class="code-block"><code>
+typedef struct {
+    // ... campos existentes ...
+    uint8_t comando_pwm;  // NEW: Valor PWM 0-255
+    uint8_t comando_modo; // NEW: 0=OFF, 1=ON, 2=PWM
+} DomoMessage_t;
+                    </code></div>
+
+                    <p><strong>Paso 2:</strong> Agregar procesamiento de comandos MQTT</p>
+                    <div class="code-block"><code>
+// En gateway_mqtt.cpp - handle_mqtt_command
+cJSON* pwm_item = cJSON_GetObjectItem(root, "pwm");
+cJSON* modo_item = cJSON_GetObjectItem(root, "modo");
+
+if (cJSON_IsNumber(pwm_item) && cJSON_IsNumber(modo_item)) {
+    uint8_t pwm_value = (uint8_t)pwm_item->valueint;
+    uint8_t modo = (uint8_t)modo_item->valueint;
+    
+    ESP_LOGI(TAG, "Control: PWM=%d, Modo=%d", pwm_value, modo);
+    // Enviar comando por ESP-NOW
+}
+                    </code></div>
+
+                    <p><strong>Paso 3:</strong> Procesar en el nodo satélite</p>
+                    <div class="code-block"><code>
+// En nodo satélite
+DomoMessage_t cmd = {}; // Recibido por ESP-NOW
+if (cmd.comando_modo == 2) {  // PWM mode
+    ledcWrite(PWM_CHANNEL, cmd.comando_pwm);
+}
+                    </code></div>
+                </div>
+
+                <h3>Opción 3: Agregar Nuevo Tipo de Nodo</h3>
+                <div class="task-template">
+                    <h4>🎛️ Ejemplo: Agregar Nodo de Termostato</h4>
+                    <p><strong>Paso 1:</strong> Crear nueva estructura de mensaje</p>
+                    <div class="code-block"><code>
+// En domo_protocol.h
+#define NODO_TIPO_SENSOR_TEMP    1
+#define NODO_TIPO_SENSOR_HUM     2
+#define NODO_TIPO_TERMOSTATO     3  // NEW
+#define NODO_TIPO_CONTROLADOR_LUZ 4
+
+typedef struct {
+    // ... campos comunes ...
+    uint8_t tipo_nodo;  // Identifica el tipo
+    // Payload específico según tipo
+    union {
+        struct { float temp; float hum; } sensor;
+        struct { float setpoint; uint8_t modo; } termostato;
+        struct { uint8_t pwm; } luz;
+    } payload;
+} DomoMessage_t;
+                    </code></div>
+
+                    <p><strong>Paso 2:</strong> Procesar según tipo en gateway</p>
+                    <div class="code-block"><code>
+// En espnow_processor_task
+switch (msg.tipo_nodo) {
+    case NODO_TIPO_TERMOSTATO:
+        ESP_LOGI(TAG, "Setpoint: %.1f°C, Modo: %d", 
+                msg.payload.termostato.setpoint,
+                msg.payload.termostato.modo);
+        break;
+    case NODO_TIPO_SENSOR_TEMP:
+        // ... procesamiento sensor ...
+        break;
+}
+                    </code></div>
+
+                    <p><strong>Paso 3:</strong> Publicar de forma diferenciada en MQTT</p>
+                    <div class="code-block"><code>
+// Usar topics específicos según tipo
+char topic[80];
+snprintf(topic, sizeof(topic), 
+    "domotica/nodos/%02x%02x%02x/termostato/setpoint",
+    msg.mac_origen[3], msg.mac_origen[4], msg.mac_origen[5]);
+esp_mqtt_client_publish(client, topic, payload, 0, 1);
+                    </code></div>
+                </div>
+
+                <h3>Checklist para Agregar Nueva Tarea</h3>
+                <table>
+                    <tr>
+                        <th>Paso</th>
+                        <th>Archivo</th>
+                        <th>Acción</th>
+                    </tr>
+                    <tr>
+                        <td>1</td>
+                        <td>domo_protocol.h</td>
+                        <td>Actualizar estructuras de datos si es necesario</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td>gateway_espnow.cpp</td>
+                        <td>Procesar nuevos datos en <code>espnow_processor_task</code></td>
+                    </tr>
+                    <tr>
+                        <td>3</td>
+                        <td>gateway_mqtt.cpp</td>
+                        <td>Publicar en MQTT y/o procesar comandos</td>
+                    </tr>
+                    <tr>
+                        <td>4</td>
+                        <td>main/CMakeLists.txt</td>
+                        <td>Agregar archivos .cpp si se crea nuevo componente</td>
+                    </tr>
+                    <tr>
+                        <td>5</td>
+                        <td>Nodo satélite</td>
+                        <td>Implementar envío/recepción de mensajes</td>
+                    </tr>
+                    <tr>
+                        <td>6</td>
+                        <td>Tests/Debug</td>
+                        <td>Compilar y verificar con <code>idf.py build</code></td>
+                    </tr>
+                </table>
+
+                <h3>Compilación y Validación</h3>
+                <div class="code-block"><code>
+# Después de realizar cambios:
+idf.py fullclean
+idf.py build
+
+# Si hay errores de compilación:
+# 1. Verificar sintaxis C++
+# 2. Revisar estructuras en domo_protocol.h
+# 3. Asegurar que tamaño de DomoMessage_t no exceda MTU de ESP-NOW (~250 bytes)
+# 4. Compilar nuevamente
+                </code></div>
+            </section>
+
+            <!-- SECCIÓN: TECNOLOGÍA -->
+            <section id="tecnologia">
+                <h2>💻 Stack de Tecnología</h2>
+
+                <h3>Hardware</h3>
+                <table>
+                    <tr>
+                        <th>Componente</th>
+                        <th>Especificación</th>
+                    </tr>
+                    <tr>
+                        <td>Procesador</td>
+                        <td>Xtensa 32-bit (ESP32)</td>
+                    </tr>
+                    <tr>
+                        <td>Clock</td>
+                        <td>Hasta 240 MHz</td>
+                    </tr>
+                    <tr>
+                        <td>RAM</td>
+                        <td>520 KB SRAM + 4 MB Flash</td>
+                    </tr>
+                    <tr>
+                        <td>WiFi</td>
+                        <td>802.11 b/g/n @ 2.4 GHz</td>
+                    </tr>
+                    <tr>
+                        <td>Bluetooth</td>
+                        <td>BLE 4.2</td>
+                    </tr>
+                </table>
+
+                <h3>Software Stack</h3>
+                <table>
+                    <tr>
+                        <th>Capa</th>
+                        <th>Componente</th>
+                        <th>Función</th>
+                    </tr>
+                    <tr>
+                        <td>SO Tiempo Real</td>
+                        <td>FreeRTOS</td>
+                        <td>Gestión de tareas y sincronización</td>
+                    </tr>
+                    <tr>
+                        <td>Framework</td>
+                        <td>ESP-IDF v6.0.1</td>
+                        <td>SDK del ESP32</td>
+                    </tr>
+                    <tr>
+                        <td>WiFi/Red</td>
+                        <td>LwIP Stack</td>
+                        <td>TCP/IP, DNS, etc.</td>
+                    </tr>
+                    <tr>
+                        <td>Comunicación Cercana</td>
+                        <td>ESP-NOW</td>
+                        <td>Mesh directo entre ESP32</td>
+                    </tr>
+                    <tr>
+                        <td>IoT</td>
+                        <td>MQTT (esp-mqtt)</td>
+                        <td>Publicación/suscripción</td>
+                    </tr>
+                    <tr>
+                        <td>Lenguaje</td>
+                        <td>C++17</td>
+                        <td>Namespaces, clases, STL</td>
+                    </tr>
+                </table>
+
+                <h3>Tópicos MQTT Utilizados</h3>
+                <div class="code-block"><code>
+# Telemetría de nodos
+domotica/nodos/{MAC}/status
+domotica/nodos/{MAC}/temperatura
+domotica/nodos/{MAC}/humedad
+domotica/nodos/{MAC}/bateria
+
+# Comandos al gateway
+domotica/gateway/cmd
+domotica/gateway/config
+
+# Estado del gateway
+domotica/gateway/status
+domotica/gateway/online
+                </code></div>
+
+                <h3>Estructura de Directorios</h3>
+                <div class="code-block"><code>
+central_gateway/
+├── main/
+│   ├── main.cpp                 # Punto de entrada
+│   ├── gateway_wifi.cpp/h       # Gestión WiFi
+│   ├── gateway_espnow.cpp/h     # Protocolo ESP-NOW
+│   ├── gateway_mqtt.cpp/h       # Cliente MQTT
+│   ├── mqtt_client.h            # Mock MQTT (desarrollo)
+│   ├── cJSON.h                  # Mock JSON
+│   ├── CMakeLists.txt
+│   └── ...
+├── components/
+│   └── domo_protocol/
+│       ├── include/
+│       │   └── domo_protocol.h  # Estructuras compartidas
+│       └── CMakeLists.txt
+├── build/                       # Artifacts compilados
+├── CMakeLists.txt               # Configuración proyecto
+└── sdkconfig                    # Configuración ESP-IDF
+                </code></div>
+            </section>
+
+            <!-- SECCIÓN: FAQ -->
+            <section id="faq">
+                <h2>❓ Preguntas Frecuentes</h2>
+
+                <h3>¿Cuál es el rango máximo de ESP-NOW?</h3>
+                <p>Aproximadamente 200-250 metros en línea recta sin obstáculos. En ambientes interiores típicos, el rango efectivo es de 30-100 metros.</p>
+
+                <h3>¿Cuántos nodos satélite puede manejar el gateway?</h3>
+                <p>Teóricamente ilimitado, pero se recomienda no exceder 50-100 nodos activos simultáneamente por limitaciones de CPU y memoria. El tamaño de la queue de procesamiento es configurable.</p>
+
+                <h3>¿Puedo usar múltiples gateways en la misma red?</h3>
+                <p>Sí. Cada gateway puede comunicarse con su propio conjunto de nodos satélite. Se pueden coordinar a través de MQTT para crear una red más robusta.</p>
+
+                <h3>¿Cómo manejo fallos de WiFi?</h3>
+                <p>El gateway implementa reconexión automática. Los datos se encolan localmente en FreeRTOS queue mientras espera reconexión a WiFi.</p>
+
+                <h3>¿Puedo cambiar el broker MQTT?</h3>
+                <p>Sí. Modifica la URL en <code>main.cpp</code> en la línea donde se inicializa MQTT. Soporta brokers locales y en la nube (HiveMQ, Mosquitto, AWS IoT, etc.)</p>
+
+                <h3>¿Cómo agrego sensores adicionales?</h3>
+                <p>Ver sección "Cómo Agregar Nuevas Tareas" arriba. En resumen: actualiza <code>DomoMessage_t</code>, procesa en <code>gateway_espnow.cpp</code>, y publica en MQTT.</p>
+
+                <h3>¿Hay límite en el tamaño de los mensajes?</h3>
+                <p>ESP-NOW soporta máximo 250 bytes por mensaje. La estructura <code>DomoMessage_t</code> debe ser &lt; 250 bytes. Verifica con <code>sizeof(DomoMessage_t)</code></p>
+
+                <h3>¿Puedo usar esto en producción?</h3>
+                <p>El código actual tiene stubs MQTT y cJSON para demo. Para producción:</p>
+                <ul>
+                    <li>Instala esp-mqtt real: <code>idf.py add-dependency esp-mqtt</code></li>
+                    <li>Implementa cJSON completo o alternativa</li>
+                    <li>Agrega mecanismos de seguridad (TLS/SSL)</li>
+                    <li>Implementa autenticación</li>
+                    <li>Prueba exhaustivamente con tus dispositivos</li>
+                </ul>
+
+                <h3>¿Cómo debuggeo problemas?</h3>
+                <p>Usa <code>ESP_LOGI/LOGI/LOGW/LOGE</code> macros. Los logs aparecen en el monitor serial. Para más detalle, aumenta el nivel de log en <code>sdkconfig</code></p>
+            </section>
+        </div>
+
+        <footer>
+            <p>Gateway Central de Domótica - Documentación Técnica</p>
+            <p>ESP-IDF v6.0.1 | ESP32 | FreeRTOS | MQTT | ESP-NOW</p>
+            <p style="margin-top: 10px; font-size: 0.9em;">Última actualización: 2026 | Versión 1.0</p>
+        </footer>
+    </div>
+
+    <div class="back-to-top" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">↑</div>
+
+    <script>
+        function showSection(sectionId) {
+            // Ocultar todas las secciones
+            const sections = document.querySelectorAll('section');
+            sections.forEach(section => {
+                section.classList.remove('active');
+            });
+
+            // Mostrar la sección seleccionada
+            const selectedSection = document.getElementById(sectionId);
+            if (selectedSection) {
+                selectedSection.classList.add('active');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        // Mostrar botón "back to top" cuando se scrollea
+        window.addEventListener('scroll', function() {
+            const backToTop = document.querySelector('.back-to-top');
+            if (window.pageYOffset > 300) {
+                backToTop.classList.add('show');
+            } else {
+                backToTop.classList.remove('show');
+            }
+        });
+
+        // Cambiar sección con teclas de flecha
+        document.addEventListener('keydown', function(event) {
+            const sections = ['arquitectura', 'componentes', 'flujo', 'tareas', 'tecnologia', 'faq'];
+            const currentActive = document.querySelector('section.active').id;
+            const currentIndex = sections.indexOf(currentActive);
+
+            if (event.key === 'ArrowRight' && currentIndex < sections.length - 1) {
+                showSection(sections[currentIndex + 1]);
+            } else if (event.key === 'ArrowLeft' && currentIndex > 0) {
+                showSection(sections[currentIndex - 1]);
+            }
+        });
+    </script>
+</body>
+</html>
