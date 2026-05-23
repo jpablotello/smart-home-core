@@ -1,0 +1,15 @@
+{
+  "folders": [
+    {
+      "name": "Central Gateway",
+      "path": "central_gateway"
+    },
+    {
+      "name": "Dispositivo Nodo Satellite A",
+      "path": "satellite_node"
+    }
+  ],
+  "settings": {
+    "idf.workspaceToolsPath": "${workspaceFolder:Central Gateway}"
+  }
+}

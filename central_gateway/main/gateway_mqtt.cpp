@@ -7,6 +7,7 @@
 #include "cJSON.h"
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 static const char* TAG = "GTW_MQTT";
 static esp_mqtt_client_handle_t s_mqtt_client = nullptr;
@@ -34,6 +35,8 @@ static void handle_mqtt_command(const char* data, int length) {
     cJSON* root = cJSON_ParseWithLength(data, length);
     if (root == nullptr) {
         ESP_LOGE(TAG, "Error al parsear JSON del comando MQTT.");
+        // Reenviar el payload recibido por el puerto serie para depuración/gestión externa
+        printf("MQTT_UNEXPECTED_RAW: %.*s\n", length, data);
         return;
     }
 
@@ -60,6 +63,8 @@ static void handle_mqtt_command(const char* data, int length) {
         }
     } else {
         ESP_LOGE(TAG, "Faltan campos obligatorios en el JSON ('mac', 'pin', 'estado')");
+        // Reenviar el payload recibido por el puerto serie cuando el comando no es el esperado
+        printf("MQTT_UNEXPECTED_RAW: %.*s\n", length, data);
     }
 
     cJSON_Delete(root);
