@@ -328,6 +328,18 @@
                 <h2>📐 Arquitectura General</h2>
                 <p>El Gateway Central es un dispositivo ESP32 que actúa como hub de comunicación en un sistema de domótica distribuido. Sirve como puente entre dispositivos satelitales (usando ESP-NOW) y una red MQTT para control remoto y monitorización.</p>
 
+                <h3>¿Cómo fluye la comunicación?</h3>
+                <div class="highlight">
+                    <p><strong>Resumen:</strong></p>
+                    <ul>
+                        <li>El <strong>gateway</strong> se conecta a Internet mediante Wi‑Fi (modo Station) y mantiene una conexión con un broker MQTT.</li>
+                        <li>Los <strong>nodos satélite</strong> se comunican con el gateway usando <strong>ESP‑NOW</strong> (radio de corto alcance). Los satélites no acceden a Internet directamente.</li>
+                        <li>Toda la telemetría satélite llega al gateway por ESP‑NOW y el gateway la publica en MQTT.</li>
+                        <li>Los comandos enviados al broker MQTT llegan al gateway, que los reenvía por ESP‑NOW al satélite destino.</li>
+                        <li>Es posible tener múltiples gateways; la coordinación entre gateways se realiza a través de MQTT.</li>
+                    </ul>
+                </div>
+
                 <h3>Diagrama de Arquitectura</h3>
                 <div class="diagram">
                     <pre>

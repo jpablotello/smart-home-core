@@ -4,6 +4,13 @@
 
 Central Gateway acts as the hub between satellite nodes (ESP-NOW) and an MQTT broker (Internet). It is configured for the NodeMCU ESP32-S3 N16R8 board and bridges short-range ESP-NOW messages to remote MQTT clients.
 
+## ¿Cómo funciona? (resumen rápido)
+
+- **Conexiones:** El *gateway* se conecta a Internet usando Wi‑Fi en modo Station (STA) y mantiene una conexión con un broker MQTT. Los *nodos satélite* se comunican exclusivamente con el gateway mediante **ESP‑NOW** (radio de corto alcance).
+- **Flujo de datos:** La telemetría que envían los satélites llega primero al gateway por ESP‑NOW; el gateway la procesa y la publica en el broker MQTT. Los comandos provenientes del broker MQTT llegan al gateway y éste los reenvía por ESP‑NOW al satélite destino.
+- **¿Todo pasa por el gateway?** Sí: en la arquitectura por defecto el gateway actúa como puente entre la red local de ESP‑NOW y la red IP/MQTT. Los satélites no acceden a Internet directamente; todas las comunicaciones nube↔satélite pasan por el gateway. Opcionalmente se pueden tener múltiples gateways coordinados vía MQTT.
+
+
 ## Board profile
 
 - Target: `esp32s3`
