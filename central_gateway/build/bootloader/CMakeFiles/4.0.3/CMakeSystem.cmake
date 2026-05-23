@@ -1,9 +1,9 @@
-set(CMAKE_HOST_SYSTEM "Darwin-25.4.0")
+set(CMAKE_HOST_SYSTEM "Darwin-25.5.0")
 set(CMAKE_HOST_SYSTEM_NAME "Darwin")
-set(CMAKE_HOST_SYSTEM_VERSION "25.4.0")
+set(CMAKE_HOST_SYSTEM_VERSION "25.5.0")
 set(CMAKE_HOST_SYSTEM_PROCESSOR "arm64")
 
-include("/Users/juantello/Works/Esp32/Domotica/central_gateway/build/bootloader/toolchain/toolchain-esp32.cmake")
+include("/Users/juantello/esp/esp-idf/tools/cmake/toolchain-esp32s3.cmake")
 
 set(CMAKE_SYSTEM "Generic")
 set(CMAKE_SYSTEM_NAME "Generic")

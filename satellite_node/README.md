@@ -1,14 +1,27 @@
- # Satellite Node (ESP32) - README
+# Satellite Node (NodeMCU ESP32-S3 N16R8) - README
 
 ## Overview
 
-Satellite Node is a modular ESP32 device that communicates with the Central Gateway using ESP‑NOW. It runs a finite state machine (`FsmNode`) which reads peripherals (sensors/actuators), executes incoming commands, and reports telemetry.
+Satellite Node is a modular ESP32-S3 device that communicates with the Central Gateway using ESP-NOW. It runs a finite state machine (`FsmNode`) which reads peripherals (sensors/actuators), executes incoming commands, and reports telemetry.
+
+## Board profile and safe pinout
+
+- Target: `esp32s3`
+- Flash: 16 MB
+- PSRAM: 8 MB OSPI enabled
+- Integrated WS2812 RGB LED: GPIO48
+- BOOT button: GPIO0, active low
+- SPI sensor bus: MOSI GPIO11, MISO GPIO13, SCLK GPIO12, CS GPIO10
+- Native USB: GPIO19/GPIO18 reserved for future USB provisioning
+- UART0 debug: GPIO43/GPIO44
+- Do not use GPIO35, GPIO36, GPIO37, GPIO26-GPIO32, or GPIO46 as an output.
 
 ## Architecture
 
 - `FsmNode` manages states: INIT, IDLE, READ_PERIPHERALS, EXECUTE_CMD, TRANSMIT, ERROR_RECOVERY
 - `node_espnow` handles ESP‑NOW init, receive/send callbacks and an RX queue
-- Peripherals are abstracted via `PerifericoBase` (e.g., `ActuadorRele`)
+- Peripherals are injected through small interfaces (`IActuador`, `IEntradaDigital`, `ISensorNumerico`)
+- `LedRgbWs2812` drives the integrated RGB LED and lets you test network commands without external wiring
 
 ## How to add a sensor (analog) step-by-step
 
@@ -18,10 +31,10 @@ Satellite Node is a modular ESP32 device that communicates with the Central Gate
 
 ```cpp
 // hal/sensor_temp.cpp (sketch)
-class SensorTemp : public PerifericoBase {
+class SensorTemp : public ISensorNumerico {
 public:
   bool inicializar() override { /* init ADC */ return true; }
-  float leer() { /* read ADC and convert */ return 0.0f; }
+  int leerValor() override { /* read ADC and convert */ return 0; }
 };
 ```
 
@@ -38,13 +51,23 @@ public:
 Example (reading a button):
 
 ```cpp
-int state = gpio_get_level(GPIO_NUM_0); // adjust pin
-if (state == 1) {
+int state = gpio_get_level(Node::Config::BUTTON_PIN);
+if (state == 0) {
   // mark event and include in DomoMessage_t
 }
 ```
 
+This project already includes an example button input and SPI sensor implementation: the node reads `button_pressed` and `spi_value` and sends them in the telemetry message to the gateway. The gateway publishes these values to MQTT and you can monitor them from the network. If the node has not yet learned the gateway MAC, it sends telemetry using ESP-NOW broadcast; after receiving a command, it registers that gateway as a peer and sends direct reports.
+
 ## Build and flash
+
+Before building, activate the ESP-IDF environment from the shell:
+
+```bash
+source /Users/juantello/esp/esp-idf/export.sh
+```
+
+Then run the build commands from `satellite_node`:
 
 ```bash
 idf.py fullclean
@@ -52,14 +75,18 @@ idf.py build
 idf.py -p <PORT> flash monitor
 ```
 
+Replace `<PORT>` with the UART USB-C serial device. The native USB pins are intentionally unused so they remain available for future first-boot provisioning.
+
 ## Testing and verification
 
-1. With the gateway running, verify the node registers the gateway MAC and successfully sends telemetry (check serial logs).
+1. With the gateway running, verify the node sends telemetry by broadcast first and registers the gateway MAC after receiving a command (check serial logs).
 2. Use `mosquitto_sub` on the gateway side to confirm telemetry reaches MQTT.
+3. Publish a command with `estado: 1` to turn the integrated RGB LED green, and `estado: 0` to turn it off.
 
 ## Relevant files
 
 - `satellite_node/main/main.cpp`
+- `satellite_node/main/node_config.h`
 - `satellite_node/main/node_espnow.cpp` / `.h`
 - `satellite_node/main/fsm/fsm_node.cpp` / `.h`
 - `satellite_node/main/hal/*` — peripheral drivers
@@ -68,4 +95,4 @@ idf.py -p <PORT> flash monitor
 ## Notes
 
 - Keep `DomoMessage_t` small due to ESP‑NOW payload size limits (~250 bytes).
-- Use `esp_now_add_peer` on the node to ensure the gateway is a peer before sending.
+- Broadcast telemetry requires the satellite and gateway to be on the same Wi-Fi channel. If telemetry does not appear, check the gateway AP channel and configure the satellite Wi-Fi channel accordingly.

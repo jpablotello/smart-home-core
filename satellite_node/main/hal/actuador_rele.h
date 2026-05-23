@@ -4,7 +4,7 @@
 #include "periferico_base.h"
 #include "driver/gpio.h"
 
-class ActuadorRele : public PerifericoBase {
+class ActuadorRele : public IActuador {
 public:
     /**
      * @brief Constructor para el actuador de relé.
@@ -14,12 +14,10 @@ public:
     explicit ActuadorRele(gpio_num_t pin);
     ~ActuadorRele() override = default;
 
-    // Implementaciones de la interfaz PerifericoBase
     bool inicializar() override;
     void ejecutarAccion(EstadoAccion accion) override;
     
-    // Método adicional para consultar el estado actual del relé
-    EstadoAccion obtenerEstado() const { return m_estado_actual; }
+    EstadoAccion obtenerEstado() const override { return m_estado_actual; }
 
 private:
     gpio_num_t   m_pin;

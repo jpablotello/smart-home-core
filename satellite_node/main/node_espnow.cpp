@@ -10,6 +10,7 @@ static QueueHandle_t s_rx_queue = nullptr;
 
 static uint8_t s_gateway_mac[6] = {0};
 static bool s_gateway_registered = false;
+static constexpr uint8_t BROADCAST_MAC[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 namespace Node::Espnow {
 
@@ -64,11 +65,11 @@ static void espnow_recv_cb(const esp_now_recv_info_t* recv_info, const uint8_t* 
 }
 
 // Callback de envío completado
-static void espnow_send_cb(const uint8_t* mac_addr, esp_now_send_status_t status) {
-    if (mac_addr == nullptr) return;
+static void espnow_send_cb(const wifi_tx_info_t* tx_info, esp_now_send_status_t status) {
+    if (tx_info == nullptr || tx_info->des_addr == nullptr) return;
     ESP_LOGD(TAG, "Reporte enviado a %02x:%02x:%02x:%02x:%02x:%02x. Estado: %s",
-             mac_addr[0], mac_addr[1], mac_addr[2],
-             mac_addr[3], mac_addr[4], mac_addr[5],
+             tx_info->des_addr[0], tx_info->des_addr[1], tx_info->des_addr[2],
+             tx_info->des_addr[3], tx_info->des_addr[4], tx_info->des_addr[5],
              status == ESP_NOW_SEND_SUCCESS ? "Éxito" : "Fallo");
 }
 
@@ -93,6 +94,19 @@ esp_err_t init() {
     err = esp_now_register_send_cb(espnow_send_cb);
     if (err != ESP_OK) return err;
 
+    if (!esp_now_is_peer_exist(BROADCAST_MAC)) {
+        esp_now_peer_info_t broadcast_peer = {};
+        memcpy(broadcast_peer.peer_addr, BROADCAST_MAC, 6);
+        broadcast_peer.channel = 0;
+        broadcast_peer.encrypt = false;
+
+        err = esp_now_add_peer(&broadcast_peer);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Error registrando peer broadcast: %s", esp_err_to_name(err));
+            return err;
+        }
+    }
+
     ESP_LOGI(TAG, "ESP-NOW del Nodo inicializado con éxito.");
     return ESP_OK;
 }
@@ -102,12 +116,12 @@ QueueHandle_t get_rx_queue() {
 }
 
 esp_err_t send_report(const DomoMessage_t& msg) {
+    const uint8_t* dest_mac = s_gateway_registered ? s_gateway_mac : BROADCAST_MAC;
     if (!s_gateway_registered) {
-        ESP_LOGW(TAG, "No hay Central registrada. Imposible enviar reporte.");
-        return ESP_ERR_INVALID_STATE;
+        ESP_LOGW(TAG, "No hay Central registrada. Enviando reporte por broadcast.");
     }
 
-    return esp_now_send(s_gateway_mac, reinterpret_cast<const uint8_t*>(&msg), sizeof(DomoMessage_t));
+    return esp_now_send(dest_mac, reinterpret_cast<const uint8_t*>(&msg), sizeof(DomoMessage_t));
 }
 
 bool get_gateway_mac(uint8_t* mac_out) {

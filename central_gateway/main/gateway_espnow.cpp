@@ -30,6 +30,9 @@ static void espnow_processor_task(void* pvParameters) {
             ESP_LOGI(TAG, "Tipo Nodo         : %d", static_cast<int>(msg.tipo_nodo));
             ESP_LOGI(TAG, "Pin Afectado      : %d", msg.pin_afectado);
             ESP_LOGI(TAG, "Estado Reportado  : %d", msg.estado_solicitado);
+            ESP_LOGI(TAG, "LED Brightness    : %d%%", msg.led_brightness);
+            ESP_LOGI(TAG, "Button Pressed    : %s", msg.button_pressed ? "YES" : "NO");
+            ESP_LOGI(TAG, "SPI Value         : %d", msg.spi_value);
             ESP_LOGI(TAG, "Temp Lectura      : %.2f °C", msg.lectura_temperatura);
             ESP_LOGI(TAG, "Hum Lectura       : %.2f %%", msg.lectura_humedad);
             ESP_LOGI(TAG, "Timestamp Op      : %lu ms", msg.timestamp_operacion);
@@ -73,7 +76,10 @@ static void espnow_recv_cb(const esp_now_recv_info_t* recv_info, const uint8_t* 
 static void espnow_send_cb(const wifi_tx_info_t* tx_info, esp_now_send_status_t status) {
     if (tx_info == nullptr) return;
     
-    const uint8_t* mac_addr = tx_info->ra;
+    // El campo correcto para la dirección de destino es des_addr en esta versión de ESP-IDF.
+    const uint8_t* mac_addr = tx_info->des_addr;
+    if (mac_addr == nullptr) return;
+
     ESP_LOGI(TAG, "Envío ESP-NOW a %02x:%02x:%02x:%02x:%02x:%02x completado. Estado: %s",
              mac_addr[0], mac_addr[1], mac_addr[2],
              mac_addr[3], mac_addr[4], mac_addr[5],

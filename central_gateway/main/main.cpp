@@ -5,6 +5,7 @@
 #include "gateway_wifi.h"
 #include "gateway_espnow.h"
 #include "gateway_mqtt.h"
+#include "gateway_config.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -26,10 +27,9 @@ extern "C" void app_main(void) {
 
     // 3. Inicializar Wi-Fi en modo Station
     // NOTA: Configura tus credenciales reales aquí.
-    const char* wifi_ssid = "TU_WIFI_SSID_AQUI";
-    const char* wifi_pass = "TU_WIFI_PASSWORD_AQUI";
-    ESP_LOGI(TAG, "Configurando Wi-Fi (SSID: %s)...", wifi_ssid);
-    ESP_ERROR_CHECK(Gateway::Wifi::init_sta(wifi_ssid, wifi_pass));
+    ESP_LOGI(TAG, "Configurando Wi-Fi (SSID: %s)...", Gateway::Config::WIFI_SSID);
+    ESP_ERROR_CHECK(Gateway::Wifi::init_sta(Gateway::Config::WIFI_SSID,
+                                            Gateway::Config::WIFI_PASSWORD));
 
     // 4. Inicializar módulo ESP-NOW
     // Se debe llamar una vez que Wi-Fi esté inicializado (modo STA activo)
@@ -38,9 +38,8 @@ extern "C" void app_main(void) {
 
     // 5. Inicializar el cliente MQTT
     // Se utiliza un Broker público para pruebas por defecto, cámbialo a tu Broker local (ej: mosquitto) en producción.
-    const char* mqtt_broker = "mqtt://broker.hivemq.com";
-    ESP_LOGI(TAG, "Configurando MQTT broker: %s...", mqtt_broker);
-    ESP_ERROR_CHECK(Gateway::Mqtt::init(mqtt_broker));
+    ESP_LOGI(TAG, "Configurando MQTT broker: %s...", Gateway::Config::MQTT_BROKER_URI);
+    ESP_ERROR_CHECK(Gateway::Mqtt::init(Gateway::Config::MQTT_BROKER_URI));
 
     ESP_LOGI(TAG, "Gateway Central inicializado de manera exitosa.");
 

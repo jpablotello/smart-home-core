@@ -1,0 +1,2 @@
+source /Users/juantello/Works/Esp32/Domotica/satellite_node/build/gdbinit/symbols
+source /Users/juantello/Works/Esp32/Domotica/satellite_node/build/gdbinit/connect

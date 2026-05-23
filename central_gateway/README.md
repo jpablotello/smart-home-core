@@ -1,8 +1,19 @@
-# Central Gateway (ESP32) - README
+# Central Gateway (NodeMCU ESP32-S3 N16R8) - README
 
 ## Overview
 
-Central Gateway acts as the hub between satellite nodes (ESP-NOW) and an MQTT broker (Internet). It runs on an ESP32 and bridges short-range ESP-NOW messages to remote MQTT clients.
+Central Gateway acts as the hub between satellite nodes (ESP-NOW) and an MQTT broker (Internet). It is configured for the NodeMCU ESP32-S3 N16R8 board and bridges short-range ESP-NOW messages to remote MQTT clients.
+
+## Board profile
+
+- Target: `esp32s3`
+- Flash: 16 MB
+- PSRAM: 8 MB OSPI enabled
+- Integrated WS2812 RGB LED: GPIO48, reserved for future gateway status indication
+- BOOT button: GPIO0, active low
+- Native USB: GPIO19/GPIO18 reserved for future USB provisioning
+- UART0 debug: GPIO43/GPIO44
+- Do not use GPIO35, GPIO36, GPIO37, GPIO26-GPIO32, or GPIO46 as an output.
 
 ## Architecture
 
@@ -15,32 +26,38 @@ High-level flow: startup -> NVS init -> event loop -> Wi‑Fi init -> ESP‑NOW 
 
 ## Where to update credentials
 
-Change Wi‑Fi credentials in `central_gateway/main/main.cpp` near the top of `app_main`:
+Change Wi‑Fi credentials in `central_gateway/main/gateway_config.h`:
 
 ```cpp
-const char* wifi_ssid = "YOUR_WIFI_SSID";
-const char* wifi_pass = "YOUR_WIFI_PASSWORD";
-// later:
-const char* mqtt_broker = "mqtt://broker.hivemq.com"; // change to your broker URI
+constexpr const char* WIFI_SSID = "YOUR_WIFI_SSID";
+constexpr const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+constexpr const char* MQTT_BROKER_URI = "mqtt://broker.hivemq.com";
 ```
 
 Files to edit:
-- `central_gateway/main/main.cpp` — set `wifi_ssid`, `wifi_pass`, `mqtt_broker`
+- `central_gateway/main/gateway_config.h` — set `WIFI_SSID`, `WIFI_PASSWORD`, `MQTT_BROKER_URI`
 - `central_gateway/main/gateway_wifi.cpp` / `.h` — Wi‑Fi internals and `is_connected()`
 - `central_gateway/main/gateway_mqtt.cpp` / `.h` — MQTT initialization and publish logic
 
 ## Build and flash
 
-Use ESP-IDF tools from the project root (`central_gateway` is an IDF component inside the workspace). Typical commands:
+Before building, activate the ESP-IDF environment from the shell:
 
 ```bash
-# from workspace or central_gateway folder
+source /Users/juantello/esp/esp-idf/export.sh
+```
+
+Then run the build commands from `central_gateway`:
+
+```bash
 idf.py fullclean
 idf.py build
 idf.py -p <PORT> flash monitor
 ```
 
-Replace `<PORT>` with your serial device (macOS example: `/dev/tty.SLAB_USBtoUART`).
+Replace `<PORT>` with the UART USB-C serial device. The native USB pins are intentionally unused so they remain available for future first-boot provisioning.
+
+If you prefer, run the commands from the workspace root as long as the current working directory is inside the ESP-IDF project tree.
 
 ## Adding new functionality (checklist)
 
@@ -52,21 +69,34 @@ Replace `<PORT>` with your serial device (macOS example: `/dev/tty.SLAB_USBtoUAR
 
 ## Example: verify MQTT and ESP‑NOW
 
+For a complete step-by-step test flow, see:
+
+- [TESTING.md](TESTING.md)
+- [TESTING.html](TESTING.html)
+
 Subscribe to telemetry using Mosquitto (or other client):
 
 ```bash
 mosquitto_sub -h broker.hivemq.com -t 'domotica/nodos/+/status' -v
 ```
 
+Published telemetry includes fields such as `button_pressed`, `spi_value`, `led_brightness`, `estado_solicitado`, `temperatura`, and `humedad`.
+The gateway now uses the real ESP-IDF `mqtt` and `json` components, so this path is functional rather than a local mock.
+
 Publish a command to the gateway (example JSON):
 
 ```bash
-mosquitto_pub -h broker.hivemq.com -t 'domotica/gateway/cmd' -m '{"mac":"aa:bb:cc:dd:ee:ff","pin":2,"estado":1}'
+mosquitto_pub -h broker.hivemq.com -t 'domotica/gateway/cmd' -m '{"mac":"aa:bb:cc:dd:ee:ff","pin":48,"estado":1}'
 ```
+
+Use `estado: 1` to turn the satellite RGB LED on and `estado: 0` to turn it off. For reference, the gateway forwards the command over ESP-NOW to the satellite with the same `pin` and `estado`.
+Use the `mac_origen` value from telemetry as the `mac` target for commands.
 
 ## Relevant files
 
 - `central_gateway/main/main.cpp`
+- `central_gateway/main/gateway_config.h`
+- `central_gateway/main/board_config.h`
 - `central_gateway/main/gateway_wifi.cpp` / `.h`
 - `central_gateway/main/gateway_espnow.cpp` / `.h`
 - `central_gateway/main/gateway_mqtt.cpp` / `.h`

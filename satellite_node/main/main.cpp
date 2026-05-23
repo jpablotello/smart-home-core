@@ -3,18 +3,26 @@
 #include "esp_event.h"
 #include "esp_wifi.h"
 #include "esp_log.h"
-#include "actuador_rele.h"
+#include "button_input.h"
 #include "fsm_node.h"
+#include "led_rgb_ws2812.h"
+#include "node_config.h"
+#include "spi_sensor.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
 static const char* TAG = "NOD_MAIN";
 
-// Instancia global del actuador de relé en el pin GPIO 2 (LED de placa en muchos devkits de ESP32-C3)
-static ActuadorRele s_rele(GPIO_NUM_2);
+static LedRgbWs2812 s_led_rgb(Node::Config::RGB_LED_PIN);
+static ButtonInput s_boton(Node::Config::BUTTON_PIN, Node::Config::BUTTON_ACTIVE_LOW);
+static SpiSensor s_sensor_spi(Node::Config::SPI_HOST,
+                              Node::Config::SPI_MOSI_PIN,
+                              Node::Config::SPI_MISO_PIN,
+                              Node::Config::SPI_SCLK_PIN,
+                              Node::Config::SPI_CS_PIN);
 
 // Instancia global de la Máquina de Estados Finitos
-static FsmNode s_fsm(&s_rele);
+static FsmNode s_fsm(&s_led_rgb, &s_boton, &s_sensor_spi);
 
 extern "C" void app_main(void) {
     ESP_LOGI(TAG, "Iniciando Nodo Satélite Modular...");

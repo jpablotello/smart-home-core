@@ -1,10 +1,12 @@
 // gateway_mqtt.cpp
 #include "gateway_mqtt.h"
 #include "gateway_espnow.h"
+#include "gateway_config.h"
 #include "mqtt_client.h"
 #include "esp_log.h"
 #include "cJSON.h"
 #include <string.h>
+#include <stdlib.h>
 
 static const char* TAG = "GTW_MQTT";
 static esp_mqtt_client_handle_t s_mqtt_client = nullptr;
@@ -70,8 +72,8 @@ static void mqtt_event_handler(void* handler_args, esp_event_base_t base,
         case MQTT_EVENT_CONNECTED:
             ESP_LOGI(TAG, "Conectado al broker MQTT.");
             // Suscribirse al tópico de comandos
-            esp_mqtt_client_subscribe(event->client, "domotica/gateway/cmd", 1);
-            ESP_LOGI(TAG, "Suscrito a: domotica/gateway/cmd");
+            esp_mqtt_client_subscribe(event->client, Gateway::Config::MQTT_COMMAND_TOPIC, 1);
+            ESP_LOGI(TAG, "Suscrito a: %s", Gateway::Config::MQTT_COMMAND_TOPIC);
             break;
         case MQTT_EVENT_DISCONNECTED:
             ESP_LOGW(TAG, "Desconectado del broker MQTT.");
@@ -80,7 +82,8 @@ static void mqtt_event_handler(void* handler_args, esp_event_base_t base,
             ESP_LOGD(TAG, "Tópico suscrito con éxito (msg_id=%d)", event->msg_id);
             break;
         case MQTT_EVENT_DATA:
-            if (strncmp(event->topic, "domotica/gateway/cmd", event->topic_len) == 0) {
+            if (event->topic_len == strlen(Gateway::Config::MQTT_COMMAND_TOPIC) &&
+                strncmp(event->topic, Gateway::Config::MQTT_COMMAND_TOPIC, event->topic_len) == 0) {
                 handle_mqtt_command(event->data, event->data_len);
             }
             break;
@@ -130,10 +133,17 @@ esp_err_t publish_sensor_data(const DomoMessage_t& msg) {
 
     // Crear JSON
     cJSON* root = cJSON_CreateObject();
+    if (root == nullptr) {
+        return ESP_ERR_NO_MEM;
+    }
+
     cJSON_AddStringToObject(root, "mac_origen", mac_str);
     cJSON_AddNumberToObject(root, "tipo_nodo", static_cast<int>(msg.tipo_nodo));
     cJSON_AddNumberToObject(root, "pin_afectado", msg.pin_afectado);
     cJSON_AddNumberToObject(root, "estado_solicitado", msg.estado_solicitado);
+    cJSON_AddNumberToObject(root, "led_brightness", msg.led_brightness);
+    cJSON_AddNumberToObject(root, "button_pressed", msg.button_pressed);
+    cJSON_AddNumberToObject(root, "spi_value", msg.spi_value);
     cJSON_AddNumberToObject(root, "temperatura", msg.lectura_temperatura);
     cJSON_AddNumberToObject(root, "humedad", msg.lectura_humedad);
     cJSON_AddNumberToObject(root, "timestamp", msg.timestamp_operacion);
@@ -147,7 +157,7 @@ esp_err_t publish_sensor_data(const DomoMessage_t& msg) {
 
     // Publicar telemetría
     char topic[64];
-    snprintf(topic, sizeof(topic), "domotica/nodos/%s/status", mac_str);
+    snprintf(topic, sizeof(topic), Gateway::Config::MQTT_TELEMETRY_TOPIC_FORMAT, mac_str);
     
     int msg_id = esp_mqtt_client_publish(s_mqtt_client, topic, json_str, 0, 1, 0);
     free(json_str);

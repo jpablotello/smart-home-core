@@ -7,14 +7,18 @@
 
 static const char* TAG = "FSM_NODE";
 
-FsmNode::FsmNode(PerifericoBase* actuador)
+FsmNode::FsmNode(IActuador* actuador, IEntradaDigital* boton, ISensorNumerico* sensor_spi)
     : m_estado(FsmState::STATE_INIT),
       m_actuador(actuador),
+      m_boton(boton),
+      m_sensor_spi(sensor_spi),
       m_temperatura_actual(22.5f),
       m_humedad_actual(60.0f),
       m_fallas_seguidas(0),
       m_comando_pendiente({}),
-      m_hay_comando_pendiente(false) {}
+      m_hay_comando_pendiente(false),
+      m_button_pressed(0),
+      m_spi_value(0) {}
 
 void FsmNode::iniciar() {
     BaseType_t err = xTaskCreate(tareaFsm, "fsm_task", 4096, this, 5, nullptr);
@@ -68,6 +72,16 @@ void FsmNode::manejarEstadoInit() {
         }
     }
 
+    // 1.1 Inicializar el pulsador local
+    if (m_boton != nullptr && !m_boton->inicializar()) {
+        ESP_LOGW(TAG, "Fallo al inicializar el pulsador. Continuando sin botón.");
+    }
+
+    // 1.2 Inicializar el sensor SPI
+    if (m_sensor_spi != nullptr && !m_sensor_spi->inicializar()) {
+        ESP_LOGW(TAG, "Fallo al inicializar el sensor SPI. Continuando sin SPI.");
+    }
+
     // 2. Inicializar el stack de red local ESP-NOW
     esp_err_t err = Node::Espnow::init();
     if (err != ESP_OK) {
@@ -115,14 +129,21 @@ void FsmNode::manejarEstadoReadPeripherals() {
     m_temperatura_actual += delta_temp;
     m_humedad_actual += delta_hum;
 
+    // Lectura de pulsador y SPI
+    m_button_pressed = (m_boton != nullptr && m_boton->estaActiva()) ? 1 : 0;
+    m_spi_value = (m_sensor_spi != nullptr) ? m_sensor_spi->leerValor() : 0;
+
     // Limitar valores dentro de rangos normales
     if (m_temperatura_actual < 15.0f) m_temperatura_actual = 15.0f;
     if (m_temperatura_actual > 35.0f) m_temperatura_actual = 35.0f;
     if (m_humedad_actual < 30.0f) m_humedad_actual = 30.0f;
     if (m_humedad_actual > 90.0f) m_humedad_actual = 90.0f;
 
-    ESP_LOGI(TAG, "Lectura de Sensores -> Temperatura: %.2f °C | Humedad: %.2f %%", 
-             m_temperatura_actual, m_humedad_actual);
+    ESP_LOGI(TAG, "Lectura de Sensores -> Temperatura: %.2f °C | Humedad: %.2f %% | SPI: %d | Button: %s", 
+             m_temperatura_actual,
+             m_humedad_actual,
+             m_spi_value,
+             m_button_pressed ? "PRESSED" : "RELEASED");
 
     // Transicionar para transmitir los datos
     m_estado = FsmState::STATE_TRANSMIT;
@@ -132,13 +153,20 @@ void FsmNode::manejarEstadoExecuteCmd() {
     ESP_LOGI(TAG, ">>> FSM: STATE_EXECUTE_CMD <<<");
 
     if (m_hay_comando_pendiente && m_actuador != nullptr) {
-        // Mapear el estado solicitado (uint8_t) al enum EstadoAccion
+        // Mapear el estado solicitado al enum EstadoAccion.
+        // El valor 0 = OFF, 1 = ON. Para cualquier valor mayor, se considera ON.
         EstadoAccion accion = EstadoAccion::APAGADO;
-        if (m_comando_pendiente.estado_solicitado == 1) {
-            accion = EstadoAccion::ENCENDIDO;
-        } else if (m_comando_pendiente.estado_solicitado == 99) {
+        if (m_comando_pendiente.estado_solicitado == 99) {
             accion = EstadoAccion::FALLA;
+        } else if (m_comando_pendiente.estado_solicitado == 1) {
+            accion = EstadoAccion::ENCENDIDO;
+        } else if (m_comando_pendiente.estado_solicitado > 1) {
+            accion = EstadoAccion::ENCENDIDO;
         }
+
+        ESP_LOGI(TAG, "Ejecutando comando en LED. Pin: %d | Estado solicitado: %d", 
+                 m_comando_pendiente.pin_afectado,
+                 m_comando_pendiente.estado_solicitado);
 
         m_actuador->ejecutarAccion(accion);
         m_hay_comando_pendiente = false;
@@ -161,33 +189,17 @@ void FsmNode::manejarEstadoTransmit() {
     msg.tipo_nodo = TipoNodo::ACTUADOR_DIGITAL;
     msg.pin_afectado = 2; // Pin de control del relé de prueba
     
-    // Reportar el estado actual del actuador (para propósitos del reporte, estado_solicitado = estado_actual)
+    // Reportar el estado actual del actuador
     msg.estado_solicitado = 0;
+    msg.led_brightness = 0;
     if (m_actuador != nullptr) {
-        // Recuperamos el estado del actuador haciendo un cast seguro
-        // o asumiendo el estado guardado en el actuador
-        // Para simplificar, leemos el estado simulado/actual
-        // Si es 1 = ENCENDIDO, 0 = APAGADO
-        // Para el reporte de telemetría usamos el estado reflejado
-        // En una implementación real, podemos tener un método en PerifericoBase
-        // o una consulta directa. Aquí usamos el valor real de GPIO si fuera bidireccional.
-        // Dado que m_actuador implementa obtenerEstado, podemos hacer un cast o guardar el estado localmente.
-        // Para desacoplamiento, utilizaremos la acción de retorno.
-        // Para no forzar casting, el actuador escribe su estado en el hardware, 
-        // asumimos que el estado actual es mapeable.
+        EstadoAccion estado = m_actuador->obtenerEstado();
+        msg.estado_solicitado = (estado == EstadoAccion::ENCENDIDO) ? 1 : 0;
+        msg.led_brightness = (estado == EstadoAccion::ENCENDIDO) ? 100 : 0;
     }
-    
-    // Asumiremos el último estado del actuador
-    // El relé tiene una función obtenerEstado()
-    // Hacemos un cast rápido y seguro
-    // Si no es relé, por defecto es APAGADO (0)
-    // En C++17, se puede utilizar dynamic_cast pero requiere RTTI. Usamos static_cast de forma segura
-    // ya que sabemos que en app_main inyectamos un ActuadorRele.
-    // De todos modos, para evitar problemas si RTTI está desactivado, guardamos un estado interno.
-    // O leemos el nivel del GPIO directamente:
-    int nivel_pin = gpio_get_level(GPIO_NUM_2);
-    msg.estado_solicitado = (nivel_pin == 1) ? 1 : 0;
 
+    msg.button_pressed = m_button_pressed;
+    msg.spi_value = m_spi_value;
     msg.lectura_temperatura = m_temperatura_actual;
     msg.lectura_humedad = m_humedad_actual;
     msg.timestamp_operacion = xTaskGetTickCount() * portTICK_PERIOD_MS;

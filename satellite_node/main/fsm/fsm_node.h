@@ -18,11 +18,13 @@ enum class FsmState {
 class FsmNode {
 public:
     /**
-     * @brief Constructor con inyección de dependencias para los periféricos.
+     * @brief Constructor con inyección de dependencias para periféricos.
      * 
-     * @param actuador Puntero a un periférico que actúe como actuador (ej: ActuadorRele).
+     * @param actuador Actuador controlado por comandos remotos.
+     * @param boton Entrada digital reportada en telemetría.
+     * @param sensor_spi Sensor numérico reportado en telemetría.
      */
-    explicit FsmNode(PerifericoBase* actuador);
+    FsmNode(IActuador* actuador, IEntradaDigital* boton, ISensorNumerico* sensor_spi);
     ~FsmNode() = default;
 
     /**
@@ -45,7 +47,9 @@ private:
 
     // Variables internas
     FsmState        m_estado;
-    PerifericoBase* m_actuador;
+    IActuador*       m_actuador;
+    IEntradaDigital* m_boton;
+    ISensorNumerico* m_sensor_spi;
     
     // Datos y Telemetría local
     float           m_temperatura_actual;
@@ -55,4 +59,6 @@ private:
     // Comando actual recibido para ejecutar
     DomoMessage_t   m_comando_pendiente;
     bool            m_hay_comando_pendiente;
+    uint8_t         m_button_pressed;
+    uint8_t         m_spi_value;
 };

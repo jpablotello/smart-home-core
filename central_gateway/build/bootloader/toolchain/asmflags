@@ -1,6 +1,0 @@
-"-specs=/Users/juantello/Works/Esp32/Domotica/central_gateway/build/bootloader/specs/picolibc.specs"
--Wno-frame-address
--mlongcalls
--fno-builtin-memcpy
--fno-builtin-memset
--fno-builtin-bzero

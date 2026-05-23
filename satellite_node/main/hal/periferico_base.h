@@ -1,33 +1,33 @@
-// periferico_base.h
 #pragma once
 
 #include "domo_protocol.h"
+#include <stdint.h>
 
-class PerifericoBase {
+class Inicializable {
 public:
-    virtual ~PerifericoBase() = default;
+    virtual ~Inicializable() = default;
 
-    /**
-     * @brief Configura e inicializa el periférico físico.
-     * 
-     * @return true Si la inicialización fue exitosa.
-     * @return false Si ocurrió algún error.
-     */
     virtual bool inicializar() = 0;
+};
 
-    /**
-     * @brief Ejecuta una acción física en el actuador (encender, apagar, etc.).
-     * 
-     * @param accion Estado solicitado.
-     */
+class IActuador : public Inicializable {
+public:
+    ~IActuador() override = default;
+
     virtual void ejecutarAccion(EstadoAccion accion) = 0;
+    virtual EstadoAccion obtenerEstado() const = 0;
+};
 
-    /**
-     * @brief Lee un valor del sensor (por ejemplo, sensor de temperatura/humedad).
-     * 
-     * @return float Valor medido (0.0f por defecto para actuadores puros).
-     */
-    virtual float leerDato() { 
-        return 0.0f; 
-    }
+class IEntradaDigital : public Inicializable {
+public:
+    ~IEntradaDigital() override = default;
+
+    virtual bool estaActiva() const = 0;
+};
+
+class ISensorNumerico : public Inicializable {
+public:
+    ~ISensorNumerico() override = default;
+
+    virtual uint8_t leerValor() = 0;
 };
