@@ -114,3 +114,17 @@ Use the `mac_origen` value from telemetry as the `mac` target for commands.
 - Replace public test broker with a secure/authorized broker (TLS, auth).
 - Remove or secure any hardcoded credentials.
 - Validate `sizeof(DomoMessage_t)` stays below ESP‑NOW MTU (~250 bytes).
+
+## Preguntas frecuentes
+
+- **¿Cómo funciona la comunicación entre dispositivos?**
+	- Los *satélites* (nodos) se comunican con el *gateway* mediante ESP‑NOW (radio de corto alcance). El gateway actúa como puente entre la red ESP‑NOW y la red IP/MQTT.
+	- El gateway se conecta a Internet via Wi‑Fi (Station mode) y mantiene conexión con un broker MQTT; publica telemetría recibida por ESP‑NOW en `domotica/nodos/<mac>/status`.
+	- Los comandos remotos se publican en `domotica/gateway/cmd`; el gateway los recibe desde el broker y los reenvía por ESP‑NOW al satélite destino.
+
+- **¿Los satélites acceden a Internet directamente?**
+	- No por defecto: los satélites no tienen conectividad IP y dependen del gateway para todo el tráfico nube↔nodo. Para acceso directo habría que añadir Wi‑Fi/IP al firmware del satélite.
+
+- **¿Todo pasa por el gateway?**
+	- Sí: en la configuración estándar todo el tráfico entre la nube (MQTT) y los satélites pasa por el gateway. Es posible tener múltiples gateways que cooperen vía MQTT si lo necesitas.
+

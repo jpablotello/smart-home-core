@@ -323,6 +323,18 @@
         </nav>
 
         <div class="content">
+            <section id="como-funciona" class="active">
+                <h2>Cómo funciona (resumen)</h2>
+                <p>El proyecto está diseñado con una topología de puente: los dispositivos satélite se comunican por radio local (ESP‑NOW) con un Gateway central, y el Gateway se encarga de llevar esa información a la red IP mediante MQTT.</p>
+                <div class="diagram">
+                    <pre><code>Satellite Node(s)  ----ESP-NOW---->  Gateway (ESP32)  ----Wi‑Fi/MQTT---->  Broker/Cloud
+
+Telemetry: Satellite -> Gateway -> MQTT topic: domotica/nodos/&lt;mac&gt;/status
+Commands:   MQTT topic domotica/gateway/cmd -> Gateway -> ESP‑NOW -> Satellite
+                    </code></pre>
+                </div>
+                <p>Por defecto los satélites no usan Wi‑Fi ni acceden a Internet directamente; todo pasa por el Gateway. Es posible diseñar múltiples gateways que cooperen a través de MQTT.</p>
+            </section>
             <!-- SECCIÓN: ARQUITECTURA -->
             <section id="arquitectura" class="active">
                 <h2>📐 Arquitectura General</h2>

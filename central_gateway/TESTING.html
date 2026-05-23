@@ -162,6 +162,16 @@
           <tr><th>Topico de telemetria</th><td><code>domotica/nodos/&lt;satellite_mac&gt;/status</code></td></tr>
         </table>
       </section>
+      <section id="arquitectura">
+        <h2>Arquitectura y flujo de datos</h2>
+        <p>Resumen del comportamiento por defecto:</p>
+        <ul>
+          <li>Los satélites envían telemetría por <strong>ESP‑NOW</strong> al gateway (no van a Internet).</li>
+          <li>El gateway se conecta a la red Wi‑Fi y a un broker <strong>MQTT</strong>, publicando la telemetría en <code>domotica/nodos/&lt;mac&gt;/status</code>.</li>
+          <li>Los comandos remotos se publican en <code>domotica/gateway/cmd</code>; el gateway los reenvía por ESP‑NOW al satélite indicado.</li>
+        </ul>
+        <div class="callout">En la arquitectura estándar, todo el tráfico nube↔nodo pasa por el gateway. Si necesitas que un satélite tenga acceso directo a Internet, modifica el firmware del satélite para habilitar Wi‑Fi/IP.</div>
+      </section>
       <section id="configurar">
         <h2>2. Configurar gateway</h2>
         <p>Edita <code>central_gateway/main/gateway_config.h</code>:</p>
