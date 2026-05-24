@@ -83,3 +83,22 @@ idf.py -p <PORT> flash monitor
 - El pin enviado en el JSON (`pin`) es un número GPIO; para el LED integrado usa `8`.
 - Si no conoces la MAC del nodo, consulta los logs serie del dispositivo al arrancar (imprime la MAC local) o revisa la tabla de clientes del AP.
 - Mantén `DomoMessage_t` pequeño por las limitaciones de ESP‑NOW (~250 bytes).
+
+## Paso a paso: cómo se conecta el satélite a la gateway (ESP‑NOW)
+
+1. El satélite inicializa Wi‑Fi (interfaz STA) y el stack ESP‑NOW, registra callbacks de envío/recepción.
+2. Si el satélite aún no conoce la MAC de la gateway, envía paquetes probe por broadcast; puede hacer un barrido de canales para encontrar la gateway si no está en el mismo canal.
+3. La gateway, al recibir un probe, registra al satélite como peer y puede enviar un ACK de confirmación.
+4. Tras recibir el ACK, el satélite añade la gateway como peer y a partir de ese momento usa envíos unicast hacia la gateway.
+5. Comunicación operativa: el satélite envía reportes periódicos y responde a comandos que el gateway le remite.
+
+Consejos de debugging:
+- Busca en los logs serie mensajes como "Probando canal X" (satélite) y "Nueva Central detectada en MAC" o «Tramas recibidas de Nodo» (gateway).
+- Si el satélite cambia de canal para el barrido, no debe estar conectado a un AP; cambiar canales mientras estás en un AP interfiere la conectividad IP.
+- Si quieres forzar un canal para pruebas estables, configura el mismo canal en ambos firmwares (ej. `esp_wifi_set_channel(6, WIFI_SECOND_CHAN_NONE)`).
+
+Mejoras recientes en firmware
+
+- El satélite ahora intenta leer la MAC y el canal de la gateway desde NVS al arrancar; si la información existe, intenta registrar el peer directamente evitando un barrido completo.
+- Si no hay información previa, realiza barridos en ráfagas (varios sweeps) con backoff entre ráfagas para aumentar la probabilidad de descubrimiento sin bloquear indefinidamente el arranque.
+- Al detectar la gateway, guarda la MAC y el canal en NVS para arranques posteriores.

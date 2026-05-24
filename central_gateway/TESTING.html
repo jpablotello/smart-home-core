@@ -172,6 +172,28 @@
         </ul>
         <div class="callout">En la arquitectura estándar, todo el tráfico nube↔nodo pasa por el gateway. Si necesitas que un satélite tenga acceso directo a Internet, modifica el firmware del satélite para habilitar Wi‑Fi/IP.</div>
       </section>
+      <section id="espnow-connection">
+        <h2>Paso a paso de la conexión ESP‑NOW (satélite ↔ gateway)</h2>
+        <ol>
+          <li>Arranque: ambos inicializan NVS y el loop de eventos.</li>
+          <li>Gateway: conecta a la red Wi‑Fi (STA) y arranca ESP‑NOW; queda escuchando tramas entrantes.</li>
+          <li>Satellite: inicia ESP‑NOW y, si no conoce la gateway, envía probes broadcast en canales 1..13 (barrido) hasta recibir respuesta.</li>
+          <li>Discovery: si el gateway y el satélite coinciden en canal, la gateway recibe el probe y puede registrar al satélite como peer y enviar un ACK.</li>
+          <li>Confirmación: al recibir el ACK el satélite registra la gateway como peer y cambia a comunicaciones unicast.</li>
+          <li>Operación: el satélite envía reportes al gateway y el gateway reenvía a MQTT; el gateway envía comandos al satélite cuando procede.</li>
+        </ol>
+        <p>Logs y mensajes esperados:</p>
+        <ul>
+          <li>En el satélite: "Probando canal X para descubrir la Central..." y luego "Central registrada como par".</li>
+          <li>En la gateway: "Tramas recibidas de Nodo: AA:BB:..." y "ACK enviado al nodo ...".</li>
+        </ul>
+        <p class="callout">Recuerda: ESP‑NOW requiere que ambos dispositivos estén en el mismo canal 2.4 GHz. El barrido automatizado es útil en pruebas; en despliegues estables, fija un canal común.</p>
+        <p>Notas adicionales:</p>
+        <ul>
+          <li>La gateway emite beacons periódicos mientras no detecte peers; esto ayuda a que satélites que arrancan más tarde la encuentren.</li>
+          <li>El satélite guarda la MAC y canal detectados en NVS para arranques futuros y evitar barridos largos.</li>
+        </ul>
+      </section>
       <section id="configurar">
         <h2>2. Configurar gateway</h2>
         <p>Edita <code>central_gateway/main/gateway_config.h</code>:</p>

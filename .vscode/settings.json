@@ -1,7 +1,7 @@
 {
     "cmake.sourceDirectory": "/Users/juantello/Works/Esp32/Domotica/components/domo_protocol",
     "idf.openOcdConfigs": [
-        "board/esp32s3-builtin.cfg"
+        "board/esp32c6-builtin.cfg"
     ],
     "idf.currentSetup": "/Users/juantello/.espressif/v6.0.1/esp-idf"
 }

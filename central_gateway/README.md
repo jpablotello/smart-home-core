@@ -31,6 +31,32 @@ Central Gateway acts as the hub between satellite nodes (ESP-NOW) and an MQTT br
 
 High-level flow: startup -> NVS init -> event loop -> Wi‑Fi init -> ESP‑NOW init -> MQTT init -> process loop
 
+## Paso a paso: conexión Satellite ↔ Gateway
+
+1. Arranque: ambos dispositivos inicializan NVS y el loop de eventos.
+2. Gateway: inicializa Wi‑Fi en modo STA y se conecta al AP configurado; después inicializa ESP‑NOW y registra callbacks.
+3. Satellite: inicializa la interfaz Wi‑Fi (STA) pero normalmente no se conecta al AP; inicializa ESP‑NOW y registra callbacks.
+4. Descubrimiento: el satellite puede enviar broadcasts (o un probe por canal) para anunciar su MAC; el gateway recibe la trama si ambos están en el mismo canal Wi‑Fi.
+5. Registro de peers: al recibir una trama el gateway añade al satélite como `peer` (esp_now_add_peer) usando el canal observado o el canal actual del AP.
+6. ACK/confirmación: el gateway puede responder con un ACK (mensaje corto). Al recibir ese ACK el satélite registra la gateway como `peer` y pasa a comunicación unicast.
+7. Comunicación normal: el satellite envía reportes al gateway (unicast ESP‑NOW) y el gateway reenvía a MQTT; el gateway envía comandos unicast al satélite.
+
+Notas técnicas importantes:
+- ESP‑NOW solo funciona si emisor y receptor están en el mismo canal Wi‑Fi 2.4 GHz. Si el gateway está conectado a un AP en un canal distinto, deben coincidir los canales.
+- Un `peer` en ESP‑NOW incluye la dirección MAC y el campo `channel`. Si se pone `channel = 0` el stack usa el canal activo de la interfaz en el momento del envío.
+- Para facilitar pruebas el firmware del satélite realiza un barrido de canales enviando un probe broadcast en cada canal hasta que recibe un ACK de la gateway.
+- Evita cambiar el canal si el dispositivo está conectado a un AP; cambiar el canal afecta la conectividad IP.
+
+Comandos útiles para debug (puerto serie):
+
+```bash
+# Monitor serial gateway (espera tramas ESP-NOW entrantes)
+idf.py -C central_gateway monitor
+
+# Monitor serial satellite (ver "Probando canal X" y "Central registrada")
+idf.py -C satellite_node monitor
+```
+
 ## Where to update credentials
 
 Change Wi‑Fi credentials in `central_gateway/main/gateway_config.h`:
@@ -114,6 +140,11 @@ Use the `mac_origen` value from telemetry as the `mac` target for commands.
 - Replace public test broker with a secure/authorized broker (TLS, auth).
 - Remove or secure any hardcoded credentials.
 - Validate `sizeof(DomoMessage_t)` stays below ESP‑NOW MTU (~250 bytes).
+
+Discovery improvements in firmware
+
+- The gateway now emits periodic beacon broadcasts while it has no registered peers. This helps satellites that boot at different times discover the gateway without synchronized starts.
+- When the gateway detects a satellite it registers the peer using the observed channel and reduces beacon frequency.
 
 ## Preguntas frecuentes
 

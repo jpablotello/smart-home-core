@@ -57,6 +57,19 @@ extern "C" void app_main(void) {
 
     // 4. Iniciar la Máquina de Estados Finitos (FSM)
     // El estado STATE_INIT de la FSM se encargará de inicializar s_rele y el stack ESP-NOW
+    // Inicializar y hacer un parpadeo de prueba del LED al arrancar
+    if (s_led_rgb.inicializar()) {
+        // Tres parpadeos rápidos para indicar arranque correcto
+        for (int i = 0; i < 3; ++i) {
+            s_led_rgb.ejecutarAccion(EstadoAccion::ENCENDIDO);
+            vTaskDelay(pdMS_TO_TICKS(200));
+            s_led_rgb.ejecutarAccion(EstadoAccion::APAGADO);
+            vTaskDelay(pdMS_TO_TICKS(200));
+        }
+    } else {
+        ESP_LOGW(TAG, "No se pudo inicializar LED RGB para test de arranque.");
+    }
+
     s_fsm.iniciar();
 
     ESP_LOGI(TAG, "Nodo Satélite Modular iniciado de manera exitosa y ejecutando FSM.");

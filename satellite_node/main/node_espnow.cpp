@@ -3,6 +3,10 @@
 #include "esp_now.h"
 #include "esp_wifi.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "nvs_flash.h"
+#include "nvs.h"
 #include <string.h>
 
 static const char* TAG = "NOD_NOW";
@@ -13,6 +17,34 @@ static bool s_gateway_registered = false;
 static constexpr uint8_t BROADCAST_MAC[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 namespace Node::Espnow {
+
+static void save_gateway_info(const uint8_t* mac, uint8_t channel) {
+    nvs_handle_t h;
+    esp_err_t err = nvs_open("espnow", NVS_READWRITE, &h);
+    if (err != ESP_OK) return;
+    err = nvs_set_blob(h, "gateway_mac", mac, 6);
+    if (err == ESP_OK) err = nvs_set_u8(h, "gateway_chan", channel);
+    if (err == ESP_OK) nvs_commit(h);
+    nvs_close(h);
+}
+
+static bool load_gateway_info(uint8_t* mac_out, uint8_t* channel_out) {
+    nvs_handle_t h;
+    esp_err_t err = nvs_open("espnow", NVS_READONLY, &h);
+    if (err != ESP_OK) return false;
+    size_t required = 6;
+    err = nvs_get_blob(h, "gateway_mac", mac_out, &required);
+    if (err != ESP_OK || required != 6) {
+        nvs_close(h);
+        return false;
+    }
+    uint8_t ch = 0;
+    err = nvs_get_u8(h, "gateway_chan", &ch);
+    nvs_close(h);
+    if (err != ESP_OK) return false;
+    *channel_out = ch;
+    return true;
+}
 
 // Callback nativo de recepción (ESP-IDF v5.x)
 static void espnow_recv_cb(const esp_now_recv_info_t* recv_info, const uint8_t* data, int len) {
@@ -31,6 +63,13 @@ static void espnow_recv_cb(const esp_now_recv_info_t* recv_info, const uint8_t* 
                  recv_info->src_addr[0], recv_info->src_addr[1], recv_info->src_addr[2],
                  recv_info->src_addr[3], recv_info->src_addr[4], recv_info->src_addr[5]);
 
+        // Log del canal en que se recibió la trama (útil para diagnóstico de ESP-NOW)
+        if (recv_info->rx_ctrl != nullptr) {
+            ESP_LOGI(TAG, "Paquete recibido en canal: %d", recv_info->rx_ctrl->channel);
+        } else {
+            ESP_LOGI(TAG, "Paquete recibido (rx_ctrl == nullptr)");
+        }
+
         // Si ya había una central pero cambió de dirección, removemos la anterior
         if (s_gateway_registered) {
             esp_now_del_peer(s_gateway_mac);
@@ -47,6 +86,9 @@ static void espnow_recv_cb(const esp_now_recv_info_t* recv_info, const uint8_t* 
             memcpy(s_gateway_mac, recv_info->src_addr, 6);
             s_gateway_registered = true;
             ESP_LOGI(TAG, "Central registrada como par (peer) de ESP-NOW con éxito.");
+            // Guardar en NVS para arranques futuros
+            uint8_t chan = (recv_info->rx_ctrl != nullptr) ? recv_info->rx_ctrl->channel : 0;
+            save_gateway_info(s_gateway_mac, chan);
         } else {
             ESP_LOGE(TAG, "Fallo al registrar Central como peer (error: %s)", esp_err_to_name(err));
         }
@@ -94,6 +136,7 @@ esp_err_t init() {
     err = esp_now_register_send_cb(espnow_send_cb);
     if (err != ESP_OK) return err;
 
+    // Añadir peer broadcast (canal 0 -> usar canal actual al transmitir)
     if (!esp_now_is_peer_exist(BROADCAST_MAC)) {
         esp_now_peer_info_t broadcast_peer = {};
         memcpy(broadcast_peer.peer_addr, BROADCAST_MAC, 6);
@@ -105,6 +148,58 @@ esp_err_t init() {
             ESP_LOGE(TAG, "Error registrando peer broadcast: %s", esp_err_to_name(err));
             return err;
         }
+    }
+
+    // Intento: cargar información previa de la gateway desde NVS
+    uint8_t saved_mac[6];
+    uint8_t saved_chan = 0;
+    if (load_gateway_info(saved_mac, &saved_chan)) {
+        ESP_LOGI(TAG, "Info de gateway cargada desde NVS. Intentando registrar peer en canal %d", saved_chan);
+        esp_now_peer_info_t peer_info = {};
+        memcpy(peer_info.peer_addr, saved_mac, 6);
+        peer_info.channel = saved_chan;
+        peer_info.encrypt = false;
+        esp_err_t perr = esp_now_add_peer(&peer_info);
+        if (perr == ESP_OK) {
+            memcpy(s_gateway_mac, saved_mac, 6);
+            s_gateway_registered = true;
+            ESP_LOGI(TAG, "Gateway registrada a partir de NVS.");
+        } else {
+            ESP_LOGW(TAG, "No se pudo registrar gateway desde NVS: %s", esp_err_to_name(perr));
+        }
+    }
+
+    // Lanzar tarea en background que hace barridos de canales en ráfagas y con backoff
+    BaseType_t sweep_err = xTaskCreate([](void*){
+        while (!s_gateway_registered) {
+            // Hacer 3 barridos rápidos
+            for (int sweep = 0; sweep < 3 && !s_gateway_registered; ++sweep) {
+                for (int ch = 1; ch <= 13 && !s_gateway_registered; ++ch) {
+                    esp_err_t ch_err = esp_wifi_set_channel(ch, WIFI_SECOND_CHAN_NONE);
+                    if (ch_err != ESP_OK) {
+                        ESP_LOGW(TAG, "No se pudo cambiar a canal %d: %s", ch, esp_err_to_name(ch_err));
+                        continue;
+                    }
+                    ESP_LOGI(TAG, "Probando canal %d para descubrir la Central...", ch);
+
+                    DomoMessage_t probe = {};
+                    esp_wifi_get_mac(WIFI_IF_STA, probe.mac_origen);
+                    probe.tipo_nodo = TipoNodo::ACTUADOR_DIGITAL;
+                    probe.estado_solicitado = 0;
+                    esp_err_t send_err = esp_now_send(BROADCAST_MAC, reinterpret_cast<const uint8_t*>(&probe), sizeof(probe));
+                    if (send_err != ESP_OK) {
+                        ESP_LOGW(TAG, "esp_now_send probe en canal %d falló: %s", ch, esp_err_to_name(send_err));
+                    }
+                    vTaskDelay(pdMS_TO_TICKS(400));
+                }
+            }
+            // Backoff antes de siguiente ronda de barridos
+            vTaskDelay(pdMS_TO_TICKS(5000));
+        }
+        vTaskDelete(nullptr);
+    }, "espnow_sweep_task", 4096, nullptr, 5, nullptr);
+    if (sweep_err != pdPASS) {
+        ESP_LOGW(TAG, "No se pudo crear la tarea de sweep de canales.");
     }
 
     ESP_LOGI(TAG, "ESP-NOW del Nodo inicializado con éxito.");
